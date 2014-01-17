@@ -62,6 +62,7 @@
 
 #include "brics_actuator/JointPositions.h"
 #include "brics_actuator/JointVelocities.h"
+#include "brics_actuator/JointTorques.h"
 
 /* OODL includes */
 #include "YouBotConfiguration.h"
@@ -148,7 +149,14 @@ public:
      * @param armIndex Index that identifies the arm
      */
     void armVelocitiesCommandCallback(const brics_actuator::JointVelocitiesConstPtr& youbotArmCommand, int armIndex);
-
+    
+    /**
+     * @brief Callback that is executed when a velocity command for the arm comes in.
+     * @param youbotArmCommand Message that contains the desired joint configuration.
+     * @param armIndex Index that identifies the arm
+     */
+    void armTorquesCommandCallback(const brics_actuator::JointTorquesConstPtr& youbotArmCommand, int armIndex);
+    
     /**
 	 * @brief Callback that is executed when an action goal to perform a joint trajectory with the arm comes in.
 	 * @param youbotArmGoal Actionlib goal that contains the trajectory.

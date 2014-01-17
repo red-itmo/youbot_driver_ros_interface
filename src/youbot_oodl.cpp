@@ -98,6 +98,7 @@ int main(int argc, char **argv)
         youBot.computeOODLSensorReadings();
         youBot.publishOODLSensorReadings();
         youBot.publishArmAndBaseDiagnostics(2.0);    //publish only every 2 seconds
+        ros::spinOnce();
         rate.sleep();
     }
 
