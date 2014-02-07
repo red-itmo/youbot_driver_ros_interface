@@ -848,7 +848,7 @@ void YouBotOODLWrapper::computeOODLSensorReadings()
             baseJointStateMessage.name[i] = youBotConfiguration.baseConfiguration.wheelNames[i];
             baseJointStateMessage.position[i] = currentAngle.angle.value();
             baseJointStateMessage.velocity[i] = currentVelocity.angularVelocity.value();
-            baseJointStateMessage.velocity[i] = currentTorque.torque.value();
+            baseJointStateMessage.effort[i] = currentTorque.torque.value();
         }
 
         /*
