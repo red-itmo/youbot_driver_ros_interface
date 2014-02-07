@@ -137,6 +137,9 @@ public:
 
     /// Receives "brics_actuator/JointVelocities" for the arm joints
     ros::Subscriber armVelocityCommandSubscriber;
+    
+    /// Receives "brics_actuator/JointTorques" for the arm joints
+    ros::Subscriber armTorquesCommandSubscriber;
 
 	/// Implements a "control_msgs/FollowJointTrajectory" action
 	actionlib::ActionServer<control_msgs::FollowJointTrajectoryAction> *armJointTrajectoryAction;
