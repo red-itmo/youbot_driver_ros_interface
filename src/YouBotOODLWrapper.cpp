@@ -62,7 +62,7 @@ node(n)
     youBotChildFrameID = "base_link"; //holds true for both: base and arm
     armJointStateMessages.clear();
 
-    n.param("youBotDriverCycleFrequencyInHz", youBotDriverCycleFrequencyInHz, 50.0);
+    n.param("youBotDriverCycleFrequencyInHz", youBotDriverCycleFrequencyInHz, 200.0);
     //n.param("trajectoryActionServerEnable", trajectoryActionServerEnable, false);
     //n.param("trajectoryVelocityGain", trajectoryVelocityGain, 0.0);
     //n.param("trajectoryPositionGain", trajectoryPositionGain, 5.0);
@@ -934,7 +934,7 @@ void YouBotOODLWrapper::computeOODLSensorReadings()
              * themselves. Of course if the finger are screwed to the most inner position (i.e. the can close completely),
              * than it is correct.
              */
-            try 
+            /*try 
             {
                 youbot::YouBotGripperBar& gripperBar1 = youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmGripper().getGripperBar1();
                 youbot::YouBotGripperBar& gripperBar2 = youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmGripper().getGripperBar2();
@@ -958,7 +958,7 @@ void YouBotOODLWrapper::computeOODLSensorReadings()
             {
                 std::string errorMessage = e.what();
                 ROS_WARN("Cannot read gripper values: %s", errorMessage.c_str());
-            }
+            }*/
 /*
             if (trajectoryActionServerEnable)
             {

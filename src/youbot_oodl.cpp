@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 	double youBotDriverCycleFrequencyInHz;	//the driver recives commands and publishes them with a fixed frequency
 	n.param("youBotHasBase", youBotHasBase, true);
 	n.param("youBotHasArms", youBotHasArms, true);
-	n.param("youBotDriverCycleFrequencyInHz", youBotDriverCycleFrequencyInHz, 50.0);
+	n.param("youBotDriverCycleFrequencyInHz", youBotDriverCycleFrequencyInHz, 200.0);
 	n.param<std::string>("youBotConfigurationFilePath", youBot.youBotConfiguration.configurationFilePath, mkstr(YOUBOT_CONFIGURATIONS_DIR));
 	n.param<std::string>("youBotBaseName", youBot.youBotConfiguration.baseConfiguration.baseID, "youbot-base");
 
@@ -98,6 +98,7 @@ int main(int argc, char **argv)
         youBot.computeOODLSensorReadings();
         youBot.publishOODLSensorReadings();
         youBot.publishArmAndBaseDiagnostics(2.0);    //publish only every 2 seconds
+        ros::spinOnce();
         rate.sleep();
     }
 
