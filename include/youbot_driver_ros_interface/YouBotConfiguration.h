@@ -144,6 +144,9 @@ public:
 	/// Implements a "control_msgs/FollowJointTrajectory" action
 	actionlib::ActionServer<control_msgs::FollowJointTrajectoryAction> *armJointTrajectoryAction;
 
+    /// Another test for trajectory
+    actionlib::ActionServer<control_msgs::FollowJointTrajectoryAction> *armJointVelTrajectoryAction;
+
     /// Receives "brics_actuator/JointPositions" for the gripper
     ros::Subscriber gripperPositionCommandSubscriber;
 
