@@ -739,7 +739,7 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
     youbot::JointVelocitySetpoint setedJointAngularVel;
 
     matrix::Vector<double, 5> Kp;
-    Kp(0) = 5; Kp(1) = 5; Kp(2) = 5; Kp(3) = 5; Kp(4) = 5;
+    Kp(0) = 10; Kp(1) = 10; Kp(2) = 10; Kp(3) = 10; Kp(4) = 10;
     matrix::Vector<double, 5> Ki;
     Ki(0) = 0; Ki(1) = 0; Ki(2) = 0; Ki(3) = 0; Ki(4) = 0;
     matrix::Vector<double, 5> Kd;
@@ -780,7 +780,7 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
 
     // Write to file
     std::ofstream logFile;
-    std::string logDirPath = "/home/youbot/catkin_ws/src/red_manipulation_step/logs/";
+    std::string logDirPath = "/home/senex/youbot_ws/src/red_manipulation_step/logs/";
     std::stringstream filename;
     filename << logDirPath << "data.log";
     std::string file = filename.str();
@@ -840,7 +840,7 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
         elapsedTime = ros::Time::now() - startTime;
         if (ros::Duration(deltaTime - elapsedTime).toSec() > 0) {
             ros::Duration(deltaTime - elapsedTime).sleep();
-            ROS_INFO_STREAM("Time: (" << elapsedTime << ") Statement: " << (jointAngleDiff.norm() >= epsilon));
+            // ROS_INFO_STREAM("Time: (" << elapsedTime << ") Statement: " << (jointAngleDiff.norm() >= epsilon));
         }
 
         startTime = ros::Time::now();
