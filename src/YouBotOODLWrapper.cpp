@@ -52,7 +52,7 @@ YouBotOODLWrapper::YouBotOODLWrapper()
 }
 
 YouBotOODLWrapper::YouBotOODLWrapper(ros::NodeHandle n) :
-node(n)
+    node(n)
 {
 
     youBotConfiguration.hasBase = false;
@@ -64,14 +64,17 @@ node(n)
     armJointStateMessages.clear();
 
     n.param("youBotDriverCycleFrequencyInHz", youBotDriverCycleFrequencyInHz, 200.0);
+    n.param("youBotDriverGripperReadingsCycleFrequencyInHz", youBotDriverGripperReadingsCycleFrequencyInHz, 5.0);
     //n.param("trajectoryActionServerEnable", trajectoryActionServerEnable, false);
     //n.param("trajectoryVelocityGain", trajectoryVelocityGain, 0.0);
     //n.param("trajectoryPositionGain", trajectoryPositionGain, 5.0);
-    gripperCycleCounter = 0;
+    // gripperCycleCounter = 0;
     diagnosticNameArm = "platform_Arm";
     diagnosticNameBase = "platform_Base";
     dashboardMessagePublisher = n.advertise<pr2_msgs::PowerBoardState>("/dashboard/platform_state", 1);
     diagnosticArrayPublisher = n.advertise<diagnostic_msgs::DiagnosticArray>("/diagnostics", 1);
+
+    last_gripper_readings_time_ = ros::Time::now();
 }
 
 YouBotOODLWrapper::~YouBotOODLWrapper()
@@ -117,7 +120,7 @@ void YouBotOODLWrapper::initializeBase(std::string baseName)
     areBaseMotorsSwitchedOn = true;
 }
 
-void YouBotOODLWrapper::initializeArm(std::string armName, bool enableStandardGripper)
+void YouBotOODLWrapper::initializeArm(std::string armName)
 {
     int armIndex;
     youbot::JointName jointNameParameter;
@@ -153,7 +156,20 @@ void YouBotOODLWrapper::initializeArm(std::string armName, bool enableStandardGr
 
         youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->doJointCommutation();
         youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->calibrateManipulator();
-        if (enableStandardGripper)
+    }
+    catch (std::exception& e)
+    {
+        youBotConfiguration.youBotArmConfigurations.pop_back();
+        std::string errorMessage = e.what();
+        ROS_FATAL("%s", errorMessage.c_str());
+        ROS_ERROR("Arm \"%s\" could not be initialized.", armName.c_str());
+        ROS_INFO("System has %i initialized arm(s).", static_cast<int> (youBotConfiguration.youBotArmConfigurations.size()));
+        return;
+    }
+
+    if (youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->hasGripper()) {
+
+        try
         {
             youbot::GripperBarName barName;
             std::string gripperBarName;
@@ -170,16 +186,11 @@ void YouBotOODLWrapper::initializeArm(std::string armName, bool enableStandardGr
 
             youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->calibrateGripper();
         }
-    }
-    catch (std::exception& e)
-    {
-        youBotConfiguration.youBotArmConfigurations.pop_back();
-        std::string errorMessage = e.what();
-        ROS_FATAL("%s", errorMessage.c_str());
-        ROS_ERROR("Arm \"%s\" could not be initialized.", armName.c_str());
-        ROS_INFO("System has %i initialized arm(s).", static_cast<int> (youBotConfiguration.youBotArmConfigurations.size()));
-        return;
-    }
+        catch (std::exception& e)
+        {
+            ROS_WARN_STREAM("Gripper on arm \"" << armName << "\" could not be initialized: " << e.what());
+        }
+    } else ROS_WARN_STREAM("Gripper on arm \"" << armName << "\" not found or disabled in the config file!");
 
 
     /* setup input/output communication */
@@ -215,13 +226,10 @@ void YouBotOODLWrapper::initializeArm(std::string armName, bool enableStandardGr
     topicName << youBotConfiguration.youBotArmConfigurations[armIndex].commandTopicName << "joint_states";
     youBotConfiguration.youBotArmConfigurations[armIndex].armJointStatePublisher = node.advertise<sensor_msgs::JointState > (topicName.str(), 1); //TODO different names or one topic?
 
-    if (enableStandardGripper)
-    {
-        topicName.str("");
-        topicName << youBotConfiguration.youBotArmConfigurations[armIndex].commandTopicName << "gripper_controller/position_command";
-        youBotConfiguration.youBotArmConfigurations[armIndex].gripperPositionCommandSubscriber = node.subscribe<brics_actuator::JointPositions > (topicName.str(), 1000, boost::bind(&YouBotOODLWrapper::gripperPositionsCommandCallback, this, _1, armIndex));
-        youBotConfiguration.youBotArmConfigurations[armIndex].lastGripperCommand = 0.0; //This is true if the gripper is calibrated.
-    }
+    topicName.str("");
+    topicName << youBotConfiguration.youBotArmConfigurations[armIndex].commandTopicName << "gripper_controller/position_command";
+    youBotConfiguration.youBotArmConfigurations[armIndex].gripperPositionCommandSubscriber = node.subscribe<brics_actuator::JointPositions > (topicName.str(), 1000, boost::bind(&YouBotOODLWrapper::gripperPositionsCommandCallback, this, _1, armIndex));
+    youBotConfiguration.youBotArmConfigurations[armIndex].lastGripperCommand = 0.0; //This is true if the gripper is calibrated.
 
     /* setup services*/
     serviceName.str("");
@@ -731,7 +739,7 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
     youbot::JointVelocitySetpoint setedJointAngularVel;
 
     matrix::Vector<double, 5> Kp;
-    Kp(0) = 1; Kp(1) = 1; Kp(2) = 1; Kp(3) = 1; Kp(4) = 1;
+    Kp(0) = 5; Kp(1) = 5; Kp(2) = 5; Kp(3) = 5; Kp(4) = 5;
     matrix::Vector<double, 5> Ki;
     Ki(0) = 0; Ki(1) = 0; Ki(2) = 0; Ki(3) = 0; Ki(4) = 0;
     matrix::Vector<double, 5> Kd;
@@ -1071,6 +1079,13 @@ void YouBotOODLWrapper::computeOODLSensorReadings()
 
                 /* fill joint state message */
                 armJointStateMessages[armIndex].header.stamp = currentTime;
+
+                double numberOfArmjoints = 0;
+                if(youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->hasGripper())
+                    numberOfArmjoints = youBotArmDoF + youBotNumberOfFingers;
+                else
+                    numberOfArmjoints = youBotArmDoF;
+
                 armJointStateMessages[armIndex].name.resize(youBotArmDoF + youBotNumberOfFingers);
                 armJointStateMessages[armIndex].position.resize(youBotArmDoF + youBotNumberOfFingers);
                 armJointStateMessages[armIndex].velocity.resize(youBotArmDoF + youBotNumberOfFingers);
@@ -1109,12 +1124,38 @@ void YouBotOODLWrapper::computeOODLSensorReadings()
                     trajectoryResult.error_code = trajectoryResult.SUCCESSFUL;
                     armActiveJointTrajectoryGoal.setSucceeded(trajectoryResult, "trajectory successful");
                 }
+
+                if(youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->hasGripper() &&
+                        (ros::Duration(ros::Time::now() - last_gripper_readings_time_).toSec() > (1 / youBotDriverGripperReadingsCycleFrequencyInHz))) {
+                    try {
+                        youbot::YouBotGripperBar& gripperBar1 = youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmGripper().getGripperBar1();
+                        youbot::YouBotGripperBar& gripperBar2 = youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmGripper().getGripperBar2();
+
+                        gripperBar1.getData(gripperBar1Position);
+                        gripperBar2.getData(gripperBar2Position);
+
+                        armJointStateMessages[armIndex].name[youBotArmDoF + 0] = youBotConfiguration.youBotArmConfigurations[armIndex].gripperFingerNames[YouBotArmConfiguration::LEFT_FINGER_INDEX];
+                        double leftGipperFingerPosition = gripperBar1Position.barPosition.value();
+                        armJointStateMessages[armIndex].position[youBotArmDoF + 0] = leftGipperFingerPosition;
+
+                        double rightGipperFingerPosition = gripperBar2Position.barPosition.value();
+                        armJointStateMessages[armIndex].name[youBotArmDoF + 1] = youBotConfiguration.youBotArmConfigurations[armIndex].gripperFingerNames[YouBotArmConfiguration::RIGHT_FINGER_INDEX];
+                        armJointStateMessages[armIndex].position[youBotArmDoF + 1] = rightGipperFingerPosition;
+
+                        last_gripper_readings_time_ = ros::Time::now();
+                    }
+                    catch (std::exception& e) {
+                        std::string errorMessage = e.what();
+                        ROS_WARN("Cannot read gripper values: %s", errorMessage.c_str());
+                    }
+                }
+
             }
         }
 
         youbot::EthercatMaster::getInstance().AutomaticReceiveOn(true); // ensure that all joint values will be received at the same time
-    } catch (youbot::EtherCATConnectionException& e)
-    {
+    } catch (youbot::EtherCATConnectionException& e) {
+
         ROS_WARN("%s", e.what());
         youBotConfiguration.hasBase = false;
         youBotConfiguration.hasArms = false;
