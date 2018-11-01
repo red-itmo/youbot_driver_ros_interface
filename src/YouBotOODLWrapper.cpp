@@ -1,4 +1,4 @@
-    /******************************************************************************
+ /******************************************************************************
  * Copyright (c) 2011
  * Locomotec
  *
@@ -41,8 +41,9 @@
 
 #include <sstream>
 
-#include <arm_kinematics/ArmKinematics.h>
 #include <fstream>
+
+#include <eigen3/Eigen/Dense>
 
 namespace youBot
 {
@@ -57,7 +58,7 @@ YouBotOODLWrapper::YouBotOODLWrapper(ros::NodeHandle n) :
 
     youBotConfiguration.hasBase = false;
     youBotConfiguration.hasArms = false;
-    areBaseMotorsSwitchedOn = false;    
+    areBaseMotorsSwitchedOn = false;
     areArmMotorsSwitchedOn = false;
 
     youBotChildFrameID = "base_link"; //holds true for both: base and arm
@@ -130,7 +131,7 @@ void YouBotOODLWrapper::initializeArm(std::string armName)
 
     try
     {
-        ROS_INFO("Configuration file path: %s", youBotConfiguration.configurationFilePath.c_str());   
+        ROS_INFO("Configuration file path: %s", youBotConfiguration.configurationFilePath.c_str());
         YouBotArmConfiguration tmpArmConfig;
         youBotConfiguration.youBotArmConfigurations.push_back(tmpArmConfig);
         armIndex = static_cast<int> (youBotConfiguration.youBotArmConfigurations.size()) - 1;
@@ -487,7 +488,7 @@ void YouBotOODLWrapper::armVelocitiesCommandCallback(const brics_actuator::Joint
     else
     {
         ROS_ERROR("Arm%i is not correctly initialized!", armIndex + 1);
-    }   
+    }
 }
 
 void YouBotOODLWrapper::armTorquesCommandCallback(const brics_actuator::JointTorquesConstPtr& youbotArmCommand, int armIndex)
@@ -593,7 +594,7 @@ void YouBotOODLWrapper::armJointTrajectoryGoalCallback(actionlib::ActionServer<c
     }
 
     std::vector<youbot::JointTrajectory> jointTrajectories(youBotArmDoF);
-  
+
     // convert from the ROS trajectory representation to the controller's representation
     std::vector<std::vector< quantity<plane_angle> > > positions(youBotArmDoF);
     std::vector<std::vector< quantity<angular_velocity> > > velocities(youBotArmDoF);
@@ -609,7 +610,7 @@ void YouBotOODLWrapper::armJointTrajectoryGoalCallback(actionlib::ActionServer<c
             youbotArmGoal.setRejected();
             return;
         }
-    
+
         for (int j = 0; j < youBotArmDoF; j++) {
             segment.positions = point.positions[j]*radian;
             segment.velocities = point.velocities[j]*radian_per_second;
@@ -668,6 +669,7 @@ void YouBotOODLWrapper::armJointTrajectoryCancelCallback(actionlib::ActionServer
 void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServer<control_msgs::FollowJointTrajectoryAction>::GoalHandle youbotArmGoal, unsigned int armIndex) {
     ROS_INFO("Goal for arm%i received", armIndex + 1);
     ROS_ASSERT(armIndex < youBotConfiguration.youBotArmConfigurations.size());
+    std::string packagePath = ros::package::getPath("youbot_driver_ros_interface");
 
     if (youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm == 0) {
         ROS_ERROR("Arm%i is not correctly initialized!", armIndex + 1);
@@ -714,7 +716,7 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
         }
     }
 
-    // replace the old goal with the new one
+    // Replace the old goal with the new one
     youbotArmGoal.setAccepted();
     // armActiveJointTrajectoryGoal = youbotArmGoal;
     // armHasActiveJointTrajectoryGoal = true;
@@ -722,15 +724,16 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
     // Joint States
     youbot::JointSensedAngle currentJointAngle;
     youbot::JointSensedVelocity currentJointAngularVel;
-    JointValues jointAngles;
-    JointValues jointAngVel;
-    JointValues desiredJointAngles;
-    JointValues desiredJointAngVel;
-    JointValues endJointAngles;
-    JointValues jointAngleDiff;
-    JointValues jointAngleErr;
-    JointValues jointAngVelErr;
-    JointValues resJointAngVel;
+
+    Eigen::VectorXd jointAngles(5);
+    Eigen::VectorXd jointAngVel(5);
+    Eigen::VectorXd desiredJointAngles(5);
+    Eigen::VectorXd desiredJointAngVel(5);
+    Eigen::VectorXd endJointAngles(5);
+    Eigen::VectorXd jointAngleDiff(5);
+    Eigen::VectorXd jointAngleErr(5);
+    Eigen::VectorXd jointAngVelErr(5);
+    Eigen::VectorXd resJointAngVel(5);
     ros::Duration elapsedTime;
     ros::Duration deltaTime;
     bool desired = false;
@@ -738,12 +741,10 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
 
     youbot::JointVelocitySetpoint setedJointAngularVel;
 
-    matrix::Vector<double, 5> Kp;
-    Kp(0) = 10; Kp(1) = 10; Kp(2) = 10; Kp(3) = 10; Kp(4) = 10;
-    matrix::Vector<double, 5> Ki;
-    Ki(0) = 0; Ki(1) = 0; Ki(2) = 0; Ki(3) = 0; Ki(4) = 0;
-    matrix::Vector<double, 5> Kd;
-    Kd(0) = 0; Kd(1) = 0; Kd(2) = 0; Kd(3) = 0; Kd(4) = 0;
+    Eigen::VectorXd Kp(5), Ki(5), Kd(5);
+    Kp(0) = 2; Kp(1) = 2; Kp(2) = 2; Kp(3) = 2; Kp(4) = 2;
+    Ki(0) = 0;  Ki(1) = 0;  Ki(2) = 0;  Ki(3) = 0;  Ki(4) = 0;
+    Kd(0) = 0;  Kd(1) = 0;  Kd(2) = 0;  Kd(3) = 0;  Kd(4) = 0;
 
     deltaTime = ros::Duration(trajectory.points[1].time_from_start - trajectory.points[0].time_from_start);
     double dt = deltaTime.toSec();
@@ -779,18 +780,31 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
     jointAngleDiff = jointAngles - endJointAngles;
 
     // Write to file
+    bool loggingFile = false;
     std::ofstream logFile;
-    std::string logDirPath = "/home/senex/youbot_ws/src/red_manipulation_step/logs/";
-    std::stringstream filename;
-    filename << logDirPath << "data.log";
-    std::string file = filename.str();
-    logFile.open(file.c_str());
+    if (loggingFile) {
+        std::stringstream filename;
+        filename << packagePath << "/log/data.log";
+        std::string file = filename.str();
+        logFile.open(file.c_str());
+    }
 
-    size_t p = 1;
+    ROS_INFO_STREAM("Trajecotry POINTS[" << trajectory.points.size() << "]");
+    size_t p = 0;
     ros::Time startTime = ros::Time::now();
     while (!desired) {
-        
+
+        if (p < trajectory.points.size() - 1) {
+            deltaTime = ros::Duration(trajectory.points[p + 1].time_from_start - trajectory.points[p].time_from_start);
+            ROS_INFO_STREAM("IN Trajectory");
+        }
+        else {
+            deltaTime = ros::Duration(0.01);
+            ROS_INFO_STREAM("OUT Trajectory");
+        }
+        ROS_INFO_STREAM("deltaTime " << deltaTime);
         jointAngleErr = desiredJointAngles - jointAngles;
+        ROS_INFO("LOL");
         // jointAngVelErr = desiredJointAngVel - jointAngVel;
 
         // ROS_INFO_STREAM("JointAngleDiff: " << jointAngleDiff.norm());
@@ -811,15 +825,18 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
             youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmJoint(i + 1).setData(setedJointAngularVel);
         }
         youbot::EthercatMaster::getInstance().AutomaticSendOn(true);
+        ROS_INFO("LOL1");
 
         // Reading data
         youbot::EthercatMaster::getInstance().AutomaticReceiveOn(false);
         for (int i = 0; i < youBotArmDoF; ++i) {
-            logFile << jointAngles(i) << "\t";
-            logFile << desiredJointAngles(i) << "\t";
-            logFile << jointAngleErr(i) << "\t";
-            logFile << desiredJointAngVel(i) << "\t";
-            logFile << jointAngVel(i) << "\t";
+            // if (loggingFile) {
+            //     logFile << jointAngles(i) << "\t";
+            //     logFile << desiredJointAngles(i) << "\t";
+            //     logFile << jointAngleErr(i) << "\t";
+            //     logFile << desiredJointAngVel(i) << "\t";
+            //     logFile << jointAngVel(i) << "\t";
+            // }
 
             youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmJoint(i + 1).getData(currentJointAngle);
             youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmJoint(i + 1).getData(currentJointAngularVel);
@@ -833,16 +850,19 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
             }
         }
         youbot::EthercatMaster::getInstance().AutomaticReceiveOn(true);
-        logFile << "\n";
+        ROS_INFO("LOL2");
+        // if (loggingFile) logFile << "\n";
 
         // Work with time
         jointAngleDiff = jointAngles - endJointAngles;
         elapsedTime = ros::Time::now() - startTime;
+        ROS_INFO_STREAM("Dtime " << ros::Duration(deltaTime - elapsedTime).toSec());
         if (ros::Duration(deltaTime - elapsedTime).toSec() > 0) {
             ros::Duration(deltaTime - elapsedTime).sleep();
             // ROS_INFO_STREAM("Time: (" << elapsedTime << ") Statement: " << (jointAngleDiff.norm() >= epsilon));
         }
 
+        ROS_INFO("LOL3");
         startTime = ros::Time::now();
         // Exit statements.
         if (jointAngleDiff.norm() <= epsilon) {
@@ -851,16 +871,23 @@ void YouBotOODLWrapper::armJointVelTrajectoryGoalCallback(actionlib::ActionServe
             if (desiredTime.toSec() > 0) desiredTime = ros::Time(0);
         }
 
+
+        ROS_INFO("LOL4");
         if (ros::Duration(ros::Time::now() - desiredTime).toSec() > 0.5 && desiredTime.toSec() > 0) {
             desired = true;
             youbot::EthercatMaster::getInstance().AutomaticSendOn(false);
             for (int i = 0; i < youBotArmDoF; ++i) {
                 setedJointAngularVel.angularVelocity = 0 * radian_per_second;
                 youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->getArmJoint(i + 1).setData(setedJointAngularVel);
+                ROS_INFO("LOL5");
             }
             youbot::EthercatMaster::getInstance().AutomaticSendOn(true);
         }
         p++;
+        ROS_INFO_STREAM("Delta time[" << p << "]=" << deltaTime << "vel=");
+        for (size_t i = 0; i < 5; ++i)
+            std::cout << desiredJointAngVel(i) << ", ";
+        std::cout << std::endl;
     }
     control_msgs::FollowJointTrajectoryResult trajectoryResult;
     trajectoryResult.error_code = trajectoryResult.SUCCESSFUL;
@@ -1086,10 +1113,10 @@ void YouBotOODLWrapper::computeOODLSensorReadings()
                 else
                     numberOfArmjoints = youBotArmDoF;
 
-                armJointStateMessages[armIndex].name.resize(youBotArmDoF + youBotNumberOfFingers);
-                armJointStateMessages[armIndex].position.resize(youBotArmDoF + youBotNumberOfFingers);
-                armJointStateMessages[armIndex].velocity.resize(youBotArmDoF + youBotNumberOfFingers);
-                armJointStateMessages[armIndex].effort.resize(youBotArmDoF + youBotNumberOfFingers);
+                armJointStateMessages[armIndex].name.resize(numberOfArmjoints);
+                armJointStateMessages[armIndex].position.resize(numberOfArmjoints);
+                armJointStateMessages[armIndex].velocity.resize(numberOfArmjoints);
+                armJointStateMessages[armIndex].effort.resize(numberOfArmjoints);
 
                 if (youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm == 0)
                 {
@@ -1169,7 +1196,7 @@ void YouBotOODLWrapper::computeOODLSensorReadings()
 
 void YouBotOODLWrapper::publishOODLSensorReadings()
 {
-      
+
     if (youBotConfiguration.hasBase)
     {
         youBotConfiguration.baseConfiguration.odometryBroadcaster.sendTransform(odometryTransform);
@@ -1294,7 +1321,7 @@ bool YouBotOODLWrapper::switchOnArmMotorsCallback(std_srvs::Empty::Request& requ
             for(unsigned int i = 0; i < sensedJointAngleVector.size(); i++){
               desiredJointAngle = sensedJointAngleVector[i].angle;
               desiredJointAngleVector.push_back(desiredJointAngle);
-            }        
+            }
             youBotConfiguration.youBotArmConfigurations[armIndex].youBotArm->setJointData(desiredJointAngleVector);
         }
         catch (std::exception& e)
@@ -1427,7 +1454,7 @@ void YouBotOODLWrapper::publishArmAndBaseDiagnostics(double publish_rate_in_secs
       diagnosticStatusMessage.level = diagnostic_msgs::DiagnosticStatus::ERROR;
       platformStateMessage.run_stop = true;
     }
-    diagnosticArrayMessage.status.push_back(diagnosticStatusMessage);        
+    diagnosticArrayMessage.status.push_back(diagnosticStatusMessage);
 
 
     // dashboard message

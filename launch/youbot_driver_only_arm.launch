@@ -25,12 +25,14 @@ or enable the USE_SETCAP flag in the cmake file and recompile again.
 	<param name="youBotArmName1" type="str" value="youbot-manipulator"/>
 	
 	<!-- youbot driver -->
-    <node pkg="youbot_driver_ros_interface" type="youbot_driver_ros_interface" name="youbot_driver" output="screen" />
+    <node pkg="youbot_driver_ros_interface" type="youbot_driver_ros_interface" name="youbot_driver" output="screen">
+        <remap from="arm_1/joint_states" to="/joint_states"/>
+    </node>
 
 	<!-- upoad URDF model to the parameter server -->  
     <param 
         name = "robot_description" 
-        textfile = "$(find youbot_description)/robots/youbot_arm_only.urdf" 
+        command="$(find xacro)/xacro.py $(find youbot_description)/robots/youbot_arm_only.urdf.xacro"
     />
 
 	<!-- start robot_state_publisher -->

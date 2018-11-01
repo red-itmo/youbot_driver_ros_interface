@@ -48,6 +48,7 @@
 #include <boost/units/io.hpp>
 
 /* ROS includes */
+#include <ros/package.h>
 #include "geometry_msgs/Twist.h"
 #include "tf/transform_broadcaster.h"
 #include "nav_msgs/Odometry.h"
@@ -148,14 +149,14 @@ public:
      * @param armIndex Index that identifies the arm
      */
     void armVelocitiesCommandCallback(const brics_actuator::JointVelocitiesConstPtr& youbotArmCommand, int armIndex);
-    
+
     /**
      * @brief Callback that is executed when a velocity command for the arm comes in.
      * @param youbotArmCommand Message that contains the desired joint configuration.
      * @param armIndex Index that identifies the arm
      */
     void armTorquesCommandCallback(const brics_actuator::JointTorquesConstPtr& youbotArmCommand, int armIndex);
-    
+
     /**
      * @brief Callback that is executed when an action goal to perform a joint trajectory with the arm comes in.
      * @param youbotArmGoal Actionlib goal that contains the trajectory.
@@ -185,7 +186,7 @@ public:
      * computeOODLSensorReadings needs to be executed before.
      */
     void publishOODLSensorReadings();
-    
+
     /**
     * @brief Publishes status of base and arm as diagnostic and dashboard messages continuously
     */
@@ -218,7 +219,7 @@ public:
 private:
 
     YouBotOODLWrapper(); //forbid default constructor
-    
+
 
     /// Degrees of freedom for the youBot manipulator
     static const int youBotArmDoF = 5;
@@ -269,13 +270,13 @@ private:
     // int gripperCycleCounter;
 
     //void executeActionServer(const control_msgs::FollowJointTrajectoryGoalConstPtr& goal,  int armIndex);
-    
+
     //bool trajectoryActionServerEnable;
     //double trajectoryVelocityGain;
     //double trajectoryPositionGain;
     double youBotDriverCycleFrequencyInHz;
     double youBotDriverGripperReadingsCycleFrequencyInHz;
-        
+
     /// diagnostic msgs
     ros::Time lastDiagnosticPublishTime;
 
